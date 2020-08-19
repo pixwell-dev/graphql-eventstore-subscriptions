@@ -3,7 +3,6 @@ import {
   createConnection,
   EventStoreNodeConnection,
   EventStoreSubscription,
-  ResolvedEvent,
   TcpEndPoint,
 } from 'node-eventstore-client';
 import { PubSubAsyncIterator } from './pubsub-async-iterator';
@@ -14,12 +13,8 @@ export interface PubSubEventStoreOptions {
   client?: EventStoreNodeConnection;
 }
 
-export type Unsubscribe = () => any | boolean;
-export type Handler = (_subscription: any, payload: ResolvedEvent) => Unsubscribe;
-
 export class EventStorePubSub implements PubSubEngine {
   private eventStoreConnection: EventStoreNodeConnection;
-  private handlers: Map<string, Handler> = new Map();
   private subscriptions: Map<number, EventStoreSubscription> = new Map();
   private nextSubscriptionId: number = 0;
 
@@ -32,27 +27,11 @@ export class EventStorePubSub implements PubSubEngine {
     this.eventStoreConnection.on('error', console.error);
   }
 
-  public registerHandler(topic: string, handler: Handler): EventStorePubSub {
-    if (this.handlers.has(topic)) {
-      throw new Error(`Duplication: there is already a handler for the topic ${topic} present`);
-    }
-
-    this.handlers.set(topic, handler);
-
-    return this;
-  }
-
   public async publish(triggerName: string, payload: any): Promise<void> {
     // noop
   }
 
   public async subscribe(triggerName: string, onMessage: Function, options?: Object): Promise<number> {
-    const handler = this.handlers.get(triggerName);
-
-    if (!handler) {
-      throw new Error(`Cannot subscribe to topic ${ triggerName } - no handlers`);
-    }
-
     const subscriptionId = this.getNextSubscriptionId();
     try {
       const result = await this.eventStoreConnection.subscribeToStream(
@@ -61,7 +40,6 @@ export class EventStorePubSub implements PubSubEngine {
         (sub, payload) => onMessage(sub, payload),
       );
 
-      console.log('Volatile processing of EventStore events started!');
       this.subscriptions.set(subscriptionId, result);
 
       return Promise.resolve(subscriptionId);
