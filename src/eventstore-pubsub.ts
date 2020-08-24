@@ -10,6 +10,8 @@ import { PubSubAsyncIterator } from './pubsub-async-iterator';
 export interface PubSubEventStoreOptions {
   host?: string;
   port?: string;
+  username?: string;
+  password?: string;
   client?: EventStoreNodeConnection;
 }
 
@@ -19,7 +21,12 @@ export class EventStorePubSub implements PubSubEngine {
   private nextSubscriptionId: number = 0;
 
   constructor(options: PubSubEventStoreOptions = {}) {
-    this.eventStoreConnection = createConnection({}, {
+    this.eventStoreConnection = createConnection({
+      defaultUserCredentials: {
+        username: options.username,
+        password: options.password,
+      },
+    }, {
       host: options.host,
       port: options.port,
     } as unknown as TcpEndPoint);
@@ -27,17 +34,19 @@ export class EventStorePubSub implements PubSubEngine {
     this.eventStoreConnection.on('error', console.error);
   }
 
+  // @ts-ignore
   public async publish(triggerName: string, payload: any): Promise<void> {
     // noop
   }
 
+  // @ts-ignore
   public async subscribe(triggerName: string, onMessage: Function, options?: Object): Promise<number> {
     const subscriptionId = this.getNextSubscriptionId();
     try {
       const result = await this.eventStoreConnection.subscribeToStream(
         triggerName,
         true,
-        (sub, payload) => onMessage(sub, payload),
+        (sub, payload) => onMessage(payload),
       );
 
       this.subscriptions.set(subscriptionId, result);

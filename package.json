@@ -1,11 +1,11 @@
 {
-  "name": "graphql-eventstore-subscriptions",
-  "version": "1.0.0",
-  "description": "",
+  "name": "@pixwell/graphql-eventstore-subscriptions",
+  "version": "1.1.1",
+  "description": "_graphql-eventstore-subscriptions_ implements the `PubSubEngine` interface from the [graphql-subscriptions](https://github.com/apollographql/graphql-subscriptions) package.",
   "main": "dist/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pixwell-dev/graphql-eventsore-subscriptions.git"
+    "url": "git+https://github.com/pixwell-dev/graphql-eventstore-subscriptions.git"
   },
   "keywords": [
     "graphql",
@@ -18,7 +18,7 @@
   "bugs": {
     "url": "https://github.com/pixwell-dev/graphql-eventstore-subscriptions/issues"
   },
-  "homepage": "https://github.com/davidyaha/graphql-eventstore-subscriptions",
+  "homepage": "https://github.com/pixwell-dev/graphql-eventstore-subscriptions",
   "scripts": {
     "build": "tsc --noUnusedParameters --noUnusedLocals",
     "watch": "tsc -w"
