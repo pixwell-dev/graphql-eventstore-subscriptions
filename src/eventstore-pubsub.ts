@@ -19,8 +19,13 @@ export class EventStorePubSub implements PubSubEngine {
   private eventStoreConnection: EventStoreNodeConnection;
   private subscriptions: Map<number, EventStoreSubscription> = new Map();
   private nextSubscriptionId: number = 0;
+  private retryAttempts: number = 0;
 
   constructor(options: PubSubEventStoreOptions = {}) {
+    this.connect(options);
+  }
+
+  public connect(options: PubSubEventStoreOptions = {}) {
     this.eventStoreConnection = createConnection({
       defaultUserCredentials: {
         username: options.username,
@@ -31,6 +36,17 @@ export class EventStorePubSub implements PubSubEngine {
       port: options.port,
     } as unknown as TcpEndPoint);
     this.eventStoreConnection.connect();
+
+    this.eventStoreConnection.on('connected', () => {
+      // console.info('Connection to EventStore established!');
+      this.retryAttempts = 0;
+    });
+
+    this.eventStoreConnection.on('closed', () => {
+      this.retryAttempts += 1;
+      console.error(`Connection to EventStore closed! reconnecting attempt(${this.retryAttempts})...`);
+      this.connect(options);
+    });
     this.eventStoreConnection.on('error', console.error);
   }
 
@@ -46,15 +62,36 @@ export class EventStorePubSub implements PubSubEngine {
       const result = await this.eventStoreConnection.subscribeToStream(
         triggerName,
         true,
-        (sub, payload) => onMessage(payload),
+        (_, payload) => onMessage(payload),
+        (sub, reason, error) =>
+          this.onDropped(sub, reason, error, onMessage, options)
       );
 
       this.subscriptions.set(subscriptionId, result);
 
+      // console.info('Volatile processing of EventStore events started! Stream: ' + triggerName);
       return Promise.resolve(subscriptionId);
     } catch (err) {
       console.error(err);
+      this.reSubscribeToSubscription(triggerName, onMessage, options);
     }
+  }
+
+  public onDropped(subscription, _reason: string, error: Error, onMessage: Function, options?: Object) {
+    subscription.isLive = false;
+    subscription.unsubscribe();
+    subscription.close();
+    console.error('onDropped => ' + error, error.stack);
+    this.reSubscribeToSubscription((subscription as any).streamId, onMessage, options);
+  }
+
+  public reSubscribeToSubscription(stream: string, onMessage: Function, options?: Object) {
+    console.warn(`connecting to subscription ${stream}. Retrying...`);
+    setTimeout(
+      (stream) => this.subscribe(stream, onMessage, options),
+      3000,
+      stream,
+    );
   }
 
   public unsubscribe(subId: number) {
